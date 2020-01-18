@@ -1,0 +1,95 @@
+version: '3'
+services:
+    web:
+        image: nginx:alpine
+        container_name: ac_web
+        ports:
+            - "8080:80"
+        volumes:
+            - "./containers/ingress/site.conf:/etc/nginx/conf.d/site.conf"
+        depends_on:
+            - ac-crm
+            - ac-api
+            - ac-mem
+            - ac-misc
+        networks:
+            ac:
+                ipv4_address: 172.1.1.101
+
+    ac-crm:
+        build:
+            context: ./containers/base
+        image: ac_web_base:latest
+        container_name: ac_crm
+        env_file:
+            - ./containers/.env
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock"
+            - "./containers/crm/httpd/crm.conf:/etc/apache2/sites-enabled/crm.conf"
+            - "./containers/crm/php/crm.ini:/usr/local/etc/php/conf.d/crm.ini"
+            - "./html/crm:/var/www/html/crm"
+        networks:
+            ac:
+                ipv4_address: 172.1.1.102
+
+    ac-api:
+        build:
+            context: ./containers/base
+        image: ac_web_base:latest
+        container_name: ac_api
+        env_file:
+            - ./containers/.env
+        volumes:
+            - "./containers/api/httpd/api.conf:/etc/apache2/sites-enabled/api.conf"
+            - "./containers/api/php/api.ini:/usr/local/etc/php/conf.d/api.ini"
+            - "./html/api:/var/www/html/api"
+        depends_on:
+            - ac-crm
+        networks:
+            ac:
+                ipv4_address: 172.1.1.103
+        extra_hosts:
+            - "local-crm.ac93.uk:172.1.1.102"
+
+    ac-mem:
+        build:
+            context: ./containers/base
+        image: ac_web_base:latest
+        container_name: ac_mem
+        env_file:
+            - ./containers/.env
+        volumes:
+            - "./containers/mem/httpd/mem.conf:/etc/apache2/sites-enabled/mem.conf"
+            - "./containers/mem/php/mem.ini:/usr/local/etc/php/conf.d/mem.ini"
+            - "./html/mem:/var/www/html/mem"
+        depends_on:
+            - ac-api
+        networks:
+            ac:
+                ipv4_address: 172.1.1.104
+        extra_hosts:
+            - "local-api.ac93.uk:172.1.1.103"
+
+    ac-misc:
+        build:
+            context: ./containers/base
+        image: ac_web_base:latest
+        container_name: ac_misc
+        env_file:
+            - ./containers/.env
+        volumes:
+            - "./containers/misc/httpd/misc.conf:/etc/apache2/sites-enabled/misc.conf"
+            - "./containers/misc/php/misc.ini:/usr/local/etc/php/conf.d/misc.ini"
+            - "./html/misc:/var/www/html/misc"
+        depends_on:
+            - ac-api
+        networks:
+            ac:
+                ipv4_address: 172.1.1.105
+
+networks:
+    ac:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 172.1.1.0/24
